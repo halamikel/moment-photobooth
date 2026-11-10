@@ -1,0 +1,43 @@
+services:
+  app:
+    build:
+      context: .
+    image: moment-photobooth:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      TRUST_PROXY: "true"
+      DATABASE_PATH: /app/data/photobooth.sqlite
+      UPLOAD_DIR: /app/storage/uploads
+      WEB_DIST: /app/dist
+    volumes:
+      - moment-data:/app/data
+      - moment-uploads:/app/storage/uploads
+    expose:
+      - "4000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      MOMENT_DOMAIN: ${MOMENT_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  moment-data:
+  moment-uploads:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,17 @@
+node_modules
+dist
+dist-server
+data
+storage/uploads
+.env
+.env.*
+!.env.example
+*.log
+.git
+.gitignore
+.vscode
+.idea
+coverage
+Dockerfile
+docker-compose.yml
+deploy
