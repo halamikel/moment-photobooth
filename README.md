@@ -242,6 +242,12 @@ dist-server/          Compiled API
 - The cleanup job removes expired database rows first and then best-effort
   deletes their files. In the rare event of a crash between those steps, an
   unreferenced private file can remain in `UPLOAD_DIR`.
+- Vercel, Netlify, and similar serverless hosts are not suitable for the API as
+  written. SQLite and the upload directory need a persistent filesystem, and
+  serverless functions are ephemeral. Use the Docker or systemd deployment on a
+  VPS or a container host with a persistent disk. The frontend can be hosted
+  separately only if `/api` is rewritten to an external API origin and CORS is
+  configured.
 
 ## Validation
 

@@ -1,8 +1,10 @@
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import { getSessionById } from "../db/repository.js";
 import type { SessionRecord } from "../db/repository.js";
 import { HttpError, parsePositiveInt } from "../utils/http.js";
 import { hashToken, isWellFormedToken, tokenHashesMatch } from "../utils/tokens.js";
+
+const sessionByRequest = new WeakMap<Request, SessionRecord>();
 
 export const requireSessionAccess: RequestHandler = (req, _res, next) => {
   try {
@@ -30,18 +32,17 @@ export const requireSessionAccess: RequestHandler = (req, _res, next) => {
       throw new HttpError(401, "SESSION_EXPIRED", "This photo session has expired.");
     }
 
-    req.photoboothSession = session;
+    sessionByRequest.set(req, session);
     next();
   } catch (error) {
     next(error);
   }
 };
 
-export function authenticatedSession(req: {
-  photoboothSession?: SessionRecord;
-}): SessionRecord {
-  if (!req.photoboothSession) {
+export function authenticatedSession(req: Request): SessionRecord {
+  const session = sessionByRequest.get(req);
+  if (!session) {
     throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
   }
-  return req.photoboothSession;
+  return session;
 }
