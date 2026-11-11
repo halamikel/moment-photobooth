@@ -48,7 +48,7 @@ async function request<T>(
   try {
     const response = await fetch(path, {
       ...options,
-      credentials: "omit",
+      credentials: "same-origin",
       signal: controller.signal,
       headers: {
         Accept: "application/json",
