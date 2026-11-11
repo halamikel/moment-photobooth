@@ -7,27 +7,52 @@ import express from "express";
 import "dotenv/config";
 import path from "node:path";
 import { z } from "zod";
+var emptyToUndefined = (value) => value === "" ? void 0 : value;
 var envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().min(1).max(65535).default(4e3),
-  TRUST_PROXY: z.enum(["true", "false"]).default("false").transform((value) => value === "true"),
-  DATABASE_URL: z.string().min(1).default("postgres://postgres:postgres@127.0.0.1:5432/moment"),
+  NODE_ENV: z.preprocess(
+    emptyToUndefined,
+    z.enum(["development", "test", "production"]).default("development")
+  ),
+  PORT: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(65535).default(4e3)
+  ),
+  TRUST_PROXY: z.preprocess(
+    emptyToUndefined,
+    z.enum(["true", "false"]).default("false").transform((value) => value === "true")
+  ),
+  DATABASE_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("postgres://postgres:postgres@127.0.0.1:5432/moment")
+  ),
   DATABASE_SSL: z.preprocess(
-    (value) => value === "" ? void 0 : value,
+    emptyToUndefined,
     z.enum(["true", "false"]).optional()
   ),
-  SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-  SHARE_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-  WEB_DIST: z.string().min(1).default("./dist"),
+  SESSION_TTL_HOURS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24)
+  ),
+  SHARE_TTL_HOURS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24)
+  ),
+  WEB_DIST: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("./dist")
+  ),
   CRON_SECRET: z.preprocess(
-    (value) => value === "" ? void 0 : value,
+    emptyToUndefined,
     z.string().min(1).optional()
   )
 });
 var parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  console.error("Invalid environment configuration", parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  throw new Error(
+    `Invalid environment configuration: ${JSON.stringify(
+      parsed.error.flatten().fieldErrors
+    )}`
+  );
 }
 var env = parsed.data;
 function resolveRuntimePath(value) {
@@ -1049,27 +1074,27 @@ function timingSafeEqual2(left, right) {
   return mismatch === 0;
 }
 function createApp() {
-  const app = express();
-  app.disable("x-powered-by");
+  const app2 = express();
+  app2.disable("x-powered-by");
   if (config.trustProxy) {
-    app.set("trust proxy", 1);
+    app2.set("trust proxy", 1);
   }
-  app.use(securityHeaders);
-  app.use(permissionsPolicy);
-  app.use(
+  app2.use(securityHeaders);
+  app2.use(permissionsPolicy);
+  app2.use(
     express.json({
       limit: "32kb",
       strict: true,
       type: "application/json"
     })
   );
-  app.get("/api/health", noStore, (_req, res) => {
+  app2.get("/api/health", noStore, (_req, res) => {
     res.json({ status: "ok" });
   });
-  app.use("/api", noStore, (_req, _res, next) => {
+  app2.use("/api", noStore, (_req, _res, next) => {
     ensureDatabaseSchema().then(() => next(), next);
   });
-  app.get("/api/cron/cleanup", async (req, res, next) => {
+  app2.get("/api/cron/cleanup", async (req, res, next) => {
     try {
       if (config.cronSecret) {
         const token = bearerTokenFromHeader(req.get("authorization"));
@@ -1085,13 +1110,13 @@ function createApp() {
       next(error);
     }
   });
-  app.use("/api", apiLimiter);
-  app.use("/api", blobRoutes);
-  app.use("/api/sessions", sessionRoutes);
-  app.use("/api/shares", shareRoutes);
-  app.use("/api", apiNotFound);
+  app2.use("/api", apiLimiter);
+  app2.use("/api", blobRoutes);
+  app2.use("/api/sessions", sessionRoutes);
+  app2.use("/api/shares", shareRoutes);
+  app2.use("/api", apiNotFound);
   if (fs.existsSync(config.webDist)) {
-    app.use(
+    app2.use(
       "/assets",
       express.static(path2.join(config.webDist, "assets"), {
         index: false,
@@ -1100,14 +1125,14 @@ function createApp() {
         immutable: true
       })
     );
-    app.use(
+    app2.use(
       express.static(config.webDist, {
         index: false,
         dotfiles: "deny",
         maxAge: 0
       })
     );
-    app.use((req, res, next) => {
+    app2.use((req, res, next) => {
       if (req.method !== "GET") {
         next();
         return;
@@ -1127,12 +1152,16 @@ function createApp() {
       });
     });
   }
-  app.use((_req, res) => {
+  app2.use((_req, res) => {
     res.status(404).type("text/plain").send("Not found.");
   });
-  app.use(errorHandler);
-  return app;
+  app2.use(errorHandler);
+  return app2;
 }
+
+// server/vercel.ts
+var app = createApp();
+var vercel_default = app;
 export {
-  createApp
+  vercel_default as default
 };

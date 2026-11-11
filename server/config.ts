@@ -2,26 +2,50 @@ import "dotenv/config";
 import path from "node:path";
 import { z } from "zod";
 
+const emptyToUndefined = (value: unknown): unknown =>
+  value === "" ? undefined : value;
+
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  PORT: z.coerce.number().int().min(1).max(65535).default(4000),
-  TRUST_PROXY: z
-    .enum(["true", "false"])
-    .default("false")
-    .transform((value) => value === "true"),
-  DATABASE_URL: z
-    .string()
-    .min(1)
-    .default("postgres://postgres:postgres@127.0.0.1:5432/moment"),
+  NODE_ENV: z.preprocess(
+    emptyToUndefined,
+    z.enum(["development", "test", "production"]).default("development"),
+  ),
+  PORT: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(65535).default(4000),
+  ),
+  TRUST_PROXY: z.preprocess(
+    emptyToUndefined,
+    z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((value) => value === "true"),
+  ),
+  DATABASE_URL: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .min(1)
+      .default("postgres://postgres:postgres@127.0.0.1:5432/moment"),
+  ),
   DATABASE_SSL: z.preprocess(
-    (value) => (value === "" ? undefined : value),
+    emptyToUndefined,
     z.enum(["true", "false"]).optional(),
   ),
-  SESSION_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-  SHARE_TTL_HOURS: z.coerce.number().int().min(1).max(168).default(24),
-  WEB_DIST: z.string().min(1).default("./dist"),
+  SESSION_TTL_HOURS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
+  SHARE_TTL_HOURS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(1).max(168).default(24),
+  ),
+  WEB_DIST: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("./dist"),
+  ),
   CRON_SECRET: z.preprocess(
-    (value) => (value === "" ? undefined : value),
+    emptyToUndefined,
     z.string().min(1).optional(),
   ),
 });
@@ -29,8 +53,11 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Invalid environment configuration", parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  throw new Error(
+    `Invalid environment configuration: ${JSON.stringify(
+      parsed.error.flatten().fieldErrors,
+    )}`,
+  );
 }
 
 const env = parsed.data;
