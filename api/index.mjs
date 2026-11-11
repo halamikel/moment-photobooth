@@ -44968,7 +44968,7 @@ var init_config2 = __esm({
         external_exports.enum(["true", "false"]).default("false").transform((value) => value === "true")
       ),
       DATABASE_URL: external_exports.preprocess(
-        emptyToUndefined,
+        (value) => typeof value === "string" && value !== "" ? value : process.env.POSTGRES_URL || process.env.DATABASE_URL_UNPOOLED || process.env.POSTGRES_PRISMA_URL,
         external_exports.string().min(1).default("postgres://postgres:postgres@127.0.0.1:5432/moment")
       ),
       DATABASE_SSL: external_exports.preprocess(

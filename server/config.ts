@@ -22,7 +22,12 @@ const envSchema = z.object({
       .transform((value) => value === "true"),
   ),
   DATABASE_URL: z.preprocess(
-    emptyToUndefined,
+    (value) =>
+      typeof value === "string" && value !== ""
+        ? value
+        : process.env.POSTGRES_URL ||
+          process.env.DATABASE_URL_UNPOOLED ||
+          process.env.POSTGRES_PRISMA_URL,
     z
       .string()
       .min(1)
