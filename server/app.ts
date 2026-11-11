@@ -40,12 +40,12 @@ export function createApp(): express.Express {
     }),
   );
 
-  app.use("/api", noStore, (_req, _res, next) => {
-    ensureDatabaseSchema().then(() => next(), next);
+  app.get("/api/health", noStore, (_req, res) => {
+    res.json({ status: "ok" });
   });
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok" });
+  app.use("/api", noStore, (_req, _res, next) => {
+    ensureDatabaseSchema().then(() => next(), next);
   });
 
   app.get("/api/cron/cleanup", async (req, res, next) => {
