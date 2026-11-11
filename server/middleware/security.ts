@@ -13,7 +13,11 @@ const cspDirectives: Record<string, string[] | null> = {
   fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
   imgSrc: ["'self'", "data:", "blob:"],
   mediaSrc: ["'self'", "blob:"],
-  connectSrc: ["'self'"],
+  connectSrc: [
+    "'self'",
+    "https://blob.vercel-storage.com",
+    "https://*.blob.vercel-storage.com",
+  ],
   workerSrc: ["'self'", "blob:"],
   manifestSrc: ["'self'"],
   frameSrc: ["'none'"],

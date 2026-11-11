@@ -1,3 +1,4 @@
+import { upload } from "@vercel/blob/client";
 import type {
   ApiErrorBody,
   CreateSessionResponse,
@@ -98,27 +99,50 @@ export async function createSession(config: BoothConfig): Promise<CreateSessionR
   });
 }
 
+async function uploadImage(
+  sessionId: number,
+  accessToken: string,
+  blob: Blob,
+): Promise<string> {
+  const extension = fileExtensionForMime(blob.type);
+  const pathname = `media/${sessionId}/${crypto.randomUUID()}.${extension}`;
+
+  try {
+    const result = await upload(pathname, blob, {
+      access: "private",
+      handleUploadUrl: "/api/blob-upload",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      contentType: blob.type,
+    });
+    return result.pathname;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(0, "A captured image could not be uploaded. Please try again.");
+  }
+}
+
 export async function finalizeSession(
   sessionId: number,
   accessToken: string,
   stripDataUrl: string,
   frames: string[],
 ): Promise<FinalizeResponse> {
-  const formData = new FormData();
-  const strip = dataUrlToBlob(stripDataUrl);
-  formData.append("strip", strip, `strip.${fileExtensionForMime(strip.type)}`);
+  const strip = await uploadImage(sessionId, accessToken, dataUrlToBlob(stripDataUrl));
 
-  frames.forEach((frame, index) => {
-    const blob = dataUrlToBlob(frame);
-    formData.append(`frame_${index}`, blob, `frame-${index}.${fileExtensionForMime(blob.type)}`);
-  });
+  const frameKeys: string[] = [];
+  for (const frame of frames) {
+    frameKeys.push(await uploadImage(sessionId, accessToken, dataUrlToBlob(frame)));
+  }
 
   return request<FinalizeResponse>(
     `/api/sessions/${sessionId}/finalize`,
     {
       method: "POST",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: formData,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ strip, frames: frameKeys }),
     },
     60_000,
   );

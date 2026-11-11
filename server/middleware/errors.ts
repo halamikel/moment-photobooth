@@ -1,5 +1,4 @@
 import type { ErrorRequestHandler, RequestHandler } from "express";
-import multer from "multer";
 import { ZodError } from "zod";
 import { config } from "../config.js";
 import { HttpError } from "../utils/http.js";
@@ -19,16 +18,6 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
       error: error.message,
       ...(error.details ? { details: error.details } : {}),
     });
-    return;
-  }
-
-  if (error instanceof multer.MulterError) {
-    const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
-    const message =
-      error.code === "LIMIT_FILE_SIZE"
-        ? "Each image must be 10MB or smaller."
-        : "The upload could not be accepted.";
-    res.status(status).json({ error: message });
     return;
   }
 

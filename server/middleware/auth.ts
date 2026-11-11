@@ -1,0 +1,65 @@
+import type { Request, RequestHandler } from "express";
+import { getSessionById } from "../db/repository.js";
+import type { SessionRecord } from "../db/repository.js";
+import { HttpError, parsePositiveInt } from "../utils/http.js";
+import { hashToken, isWellFormedToken, tokenHashesMatch } from "../utils/tokens.js";
+
+const sessionByRequest = new WeakMap<Request, SessionRecord>();
+
+export async function authenticateSessionToken(
+  token: string,
+  sessionId: number,
+): Promise<SessionRecord> {
+  if (!isWellFormedToken(token)) {
+    throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
+  }
+
+  const session = await getSessionById(sessionId);
+  if (!session) {
+    throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
+  }
+
+  if (!tokenHashesMatch(session.accessTokenHash, hashToken(token))) {
+    throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
+  }
+
+  if (Date.parse(session.expiresAt) <= Date.now()) {
+    throw new HttpError(401, "SESSION_EXPIRED", "This photo session has expired.");
+  }
+
+  return session;
+}
+
+export function bearerTokenFromHeader(authorization: string | undefined): string | null {
+  if (!authorization?.startsWith("Bearer ")) {
+    return null;
+  }
+  return authorization.slice("Bearer ".length).trim();
+}
+
+export const requireSessionAccess: RequestHandler = (req, _res, next) => {
+  void (async () => {
+    try {
+      const token = bearerTokenFromHeader(req.get("authorization"));
+      if (!token) {
+        throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
+      }
+
+      const sessionId = parsePositiveInt(req.params.id, "session id");
+      const session = await authenticateSessionToken(token, sessionId);
+
+      sessionByRequest.set(req, session);
+      next();
+    } catch (error) {
+      next(error);
+    }
+  })();
+};
+
+export function authenticatedSession(req: Request): SessionRecord {
+  const session = sessionByRequest.get(req);
+  if (!session) {
+    throw new HttpError(401, "UNAUTHORIZED", "A valid session token is required.");
+  }
+  return session;
+}

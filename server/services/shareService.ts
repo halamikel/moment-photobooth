@@ -16,7 +16,7 @@ export interface CreatedShare {
   expiresAt: string;
 }
 
-export function createShareForSession(session: SessionRecord): CreatedShare {
+export async function createShareForSession(session: SessionRecord): Promise<CreatedShare> {
   if (!session.finalizedAt) {
     throw new HttpError(
       409,
@@ -32,8 +32,8 @@ export function createShareForSession(session: SessionRecord): CreatedShare {
     Math.min(now + config.shareTtlMs, sessionExpiry),
   ).toISOString();
 
-  inTransaction(() => {
-    replaceShare({
+  await inTransaction(async () => {
+    await replaceShare({
       sessionId: session.id,
       tokenHash: hashToken(token),
       createdAt: new Date(now).toISOString(),
@@ -44,11 +44,11 @@ export function createShareForSession(session: SessionRecord): CreatedShare {
   return { token, expiresAt };
 }
 
-export function resolveShareToken(token: unknown): {
+export async function resolveShareToken(token: unknown): Promise<{
   token: string;
   lookup: ShareLookup;
   media: MediaRecord[];
-} {
+}> {
   if (typeof token !== "string" || !isWellFormedToken(token)) {
     throw new HttpError(
       404,
@@ -57,7 +57,7 @@ export function resolveShareToken(token: unknown): {
     );
   }
 
-  const lookup = getShareByHash(hashToken(token));
+  const lookup = await getShareByHash(hashToken(token));
   if (!lookup) {
     throw new HttpError(
       404,
@@ -85,6 +85,6 @@ export function resolveShareToken(token: unknown): {
   return {
     token,
     lookup,
-    media: listMediaBySession(lookup.session.id),
+    media: await listMediaBySession(lookup.session.id),
   };
 }

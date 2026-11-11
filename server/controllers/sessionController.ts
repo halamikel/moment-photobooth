@@ -35,7 +35,12 @@ const createSessionSchema = z
   })
   .strict();
 
-type UploadedFiles = Record<string, Express.Multer.File[]> | undefined;
+const finalizeSchema = z
+  .object({
+    strip: z.string().min(1),
+    frames: z.array(z.string().min(1)).min(1).max(4),
+  })
+  .strict();
 
 function toSessionSummary(session: SessionRecord): SessionSummary {
   return {
@@ -56,7 +61,7 @@ export async function createSessionHandler(req: Request, res: Response): Promise
   const now = new Date();
   const expiresAt = new Date(now.getTime() + config.sessionTtlMs).toISOString();
 
-  const session = createSession({
+  const session = await createSession({
     accessTokenHash: hashToken(accessToken),
     layout: body.layout,
     frame: body.frame,
@@ -75,7 +80,7 @@ export async function createSessionHandler(req: Request, res: Response): Promise
 
 export async function getSessionHandler(req: Request, res: Response): Promise<void> {
   const session = authenticatedSession(req);
-  const media = listMediaBySession(session.id).map((item) =>
+  const media = (await listMediaBySession(session.id)).map((item) =>
     toOwnerMediaSummary(item, session.id),
   );
 
@@ -89,9 +94,9 @@ export async function getSessionHandler(req: Request, res: Response): Promise<vo
 
 export async function finalizeSessionHandler(req: Request, res: Response): Promise<void> {
   const session = authenticatedSession(req);
-  const files = req.files as UploadedFiles;
-  const result = await finalizeSessionMedia(session, files);
-  const updated = getSessionById(session.id);
+  const body = finalizeSchema.parse(req.body);
+  const result = await finalizeSessionMedia(session, body);
+  const updated = await getSessionById(session.id);
 
   if (!updated) {
     throw new HttpError(500, "SESSION_MISSING", "The photo session could not be loaded.");
@@ -108,7 +113,7 @@ export async function finalizeSessionHandler(req: Request, res: Response): Promi
 
 export async function createShareHandler(req: Request, res: Response): Promise<void> {
   const session = authenticatedSession(req);
-  const share = createShareForSession(session);
+  const share = await createShareForSession(session);
 
   const response: CreateShareResponse = {
     token: share.token,
@@ -122,7 +127,7 @@ export async function createShareHandler(req: Request, res: Response): Promise<v
 export async function getOwnerMediaHandler(req: Request, res: Response): Promise<void> {
   const session = authenticatedSession(req);
   const mediaId = parsePositiveInt(req.params.mediaId, "media id");
-  const media = getMediaForSession(mediaId, session.id);
+  const media = await getMediaForSession(mediaId, session.id);
 
   if (!media) {
     throw new HttpError(404, "MEDIA_NOT_FOUND", "That media file is unavailable.");

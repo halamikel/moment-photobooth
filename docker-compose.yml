@@ -1,21 +1,35 @@
 services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: moment
+      POSTGRES_USER: moment
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-moment}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moment -d moment"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   app:
     build:
       context: .
     image: moment-photobooth:latest
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     env_file:
       - .env
     environment:
       NODE_ENV: production
       PORT: "4000"
       TRUST_PROXY: "true"
-      DATABASE_PATH: /app/data/photobooth.sqlite
-      UPLOAD_DIR: /app/storage/uploads
+      DATABASE_URL: postgres://moment:${POSTGRES_PASSWORD:-moment}@db:5432/moment
       WEB_DIST: /app/dist
-    volumes:
-      - moment-data:/app/data
-      - moment-uploads:/app/storage/uploads
     expose:
       - "4000"
 
@@ -37,7 +51,6 @@ services:
       - caddy-config:/config
 
 volumes:
-  moment-data:
-  moment-uploads:
+  postgres-data:
   caddy-data:
   caddy-config:

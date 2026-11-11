@@ -16,5 +16,5 @@
     "noUncheckedIndexedAccess": true,
     "types": ["node"]
   },
-  "include": ["api", "shared"]
+  "include": ["server", "api", "shared"]
 }

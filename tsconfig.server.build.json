@@ -9,5 +9,5 @@
     "sourceMap": true,
     "declaration": false
   },
-  "include": ["api", "shared"]
+  "include": ["server", "api", "shared"]
 }

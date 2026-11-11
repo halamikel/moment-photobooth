@@ -1,9 +1,10 @@
-import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import type { Response } from "express";
 import type { MediaSummary } from "../../shared/contracts.js";
 import type { MediaRecord } from "../db/repository.js";
 import { HttpError } from "../utils/http.js";
-import { resolveStoredFilePath } from "../utils/files.js";
+import { openStoredMedia } from "./storageService.js";
 
 function extensionFor(fileName: string): string {
   return fileName.endsWith(".png") ? "png" : "jpg";
@@ -36,16 +37,13 @@ export async function sendStoredMedia(
   media: MediaRecord,
   download: boolean,
 ): Promise<void> {
-  const filePath = resolveStoredFilePath(media.fileName);
+  const result = await openStoredMedia(media.fileName);
 
-  let fileStats;
-  try {
-    fileStats = await stat(filePath);
-  } catch {
+  if (!result || result.statusCode !== 200 || !result.stream) {
     throw new HttpError(404, "MEDIA_NOT_FOUND", "That media file is unavailable.");
   }
 
-  if (!fileStats.isFile() || fileStats.size !== media.sizeBytes) {
+  if (result.blob.size !== null && result.blob.size !== media.sizeBytes) {
     throw new HttpError(404, "MEDIA_NOT_FOUND", "That media file is unavailable.");
   }
 
@@ -61,21 +59,8 @@ export async function sendStoredMedia(
   res.setHeader("Pragma", "no-cache");
   res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
 
-  await new Promise<void>((resolve, reject) => {
-    res.sendFile(
-      filePath,
-      {
-        cacheControl: false,
-        dotfiles: "deny",
-        acceptRanges: false,
-      },
-      (error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      },
-    );
-  });
+  const nodeStream = Readable.fromWeb(
+    result.stream as unknown as import("node:stream/web").ReadableStream<Uint8Array>,
+  );
+  await pipeline(nodeStream, res);
 }

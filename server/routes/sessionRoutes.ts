@@ -13,7 +13,6 @@ import {
   shareCreateLimiter,
   uploadLimiter,
 } from "../middleware/rateLimit.js";
-import { uploadFinalize } from "../middleware/upload.js";
 import { asyncHandler } from "../utils/http.js";
 
 export const sessionRoutes = Router();
@@ -24,7 +23,6 @@ sessionRoutes.post(
   "/:id/finalize",
   uploadLimiter,
   requireSessionAccess,
-  uploadFinalize,
   asyncHandler(finalizeSessionHandler),
 );
 sessionRoutes.post(

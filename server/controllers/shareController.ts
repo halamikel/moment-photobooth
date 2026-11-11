@@ -6,7 +6,7 @@ import { resolveShareToken } from "../services/shareService.js";
 import { HttpError, parsePositiveInt } from "../utils/http.js";
 
 export async function getShareHandler(req: Request, res: Response): Promise<void> {
-  const { token, lookup, media } = resolveShareToken(req.params.token);
+  const { token, lookup, media } = await resolveShareToken(req.params.token);
 
   res.setHeader("X-Robots-Tag", "noindex, nofollow, noarchive");
   const response: ShareResponse = {
@@ -22,9 +22,9 @@ export async function getShareHandler(req: Request, res: Response): Promise<void
 }
 
 export async function getShareMediaHandler(req: Request, res: Response): Promise<void> {
-  const { lookup } = resolveShareToken(req.params.token);
+  const { lookup } = await resolveShareToken(req.params.token);
   const mediaId = parsePositiveInt(req.params.mediaId, "media id");
-  const media = getMediaForSession(mediaId, lookup.session.id);
+  const media = await getMediaForSession(mediaId, lookup.session.id);
 
   if (!media) {
     throw new HttpError(404, "MEDIA_NOT_FOUND", "That media file is unavailable.");
