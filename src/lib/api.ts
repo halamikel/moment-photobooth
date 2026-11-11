@@ -27,11 +27,14 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
   if (!response.ok) {
     const errorBody = body as ApiErrorBody | null;
-    throw new ApiError(
-      response.status,
-      errorBody?.error ?? "Something went wrong. Please try again.",
-      errorBody?.details,
-    );
+    const platformError = errorBody?.error as unknown;
+    const message =
+      typeof platformError === "string"
+        ? platformError
+        : typeof (platformError as { message?: unknown } | undefined)?.message === "string"
+          ? ((platformError as { message: string }).message)
+          : "Something went wrong. Please try again.";
+    throw new ApiError(response.status, message, errorBody?.details);
   }
 
   return body as T;
