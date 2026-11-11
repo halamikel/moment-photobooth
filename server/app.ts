@@ -22,6 +22,41 @@ function timingSafeEqual(left: string, right: string): boolean {
   return mismatch === 0;
 }
 
+function databaseHost(): string {
+  try {
+    const hostname = new URL(config.databaseUrl).hostname;
+    return hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1"
+      ? "local"
+      : "remote";
+  } catch {
+    return "invalid";
+  }
+}
+
+function databaseSource(): string {
+  if (process.env.DATABASE_URL) return "DATABASE_URL";
+  if (process.env.POSTGRES_URL) return "POSTGRES_URL";
+  if (process.env.DATABASE_URL_UNPOOLED) return "DATABASE_URL_UNPOOLED";
+  if (process.env.POSTGRES_PRISMA_URL) return "POSTGRES_PRISMA_URL";
+  return "default";
+}
+
+function describeDatabaseError(error: unknown): {
+  code?: string;
+  name: string;
+} {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? (error as { code?: unknown }).code
+      : undefined;
+  return {
+    ...(typeof code === "string" ? { code } : {}),
+    name: error instanceof Error ? error.name : "Error",
+  };
+}
+
 export function createApp(): express.Express {
   const app = express();
 
@@ -40,8 +75,29 @@ export function createApp(): express.Express {
     }),
   );
 
-  app.get("/api/health", noStore, (_req, res) => {
-    res.json({ status: "ok" });
+  app.get("/api/health", noStore, async (req, res) => {
+    if (req.query.db !== "1") {
+      res.json({ status: "ok" });
+      return;
+    }
+
+    try {
+      await ensureDatabaseSchema();
+      res.json({
+        status: "ok",
+        database: "ok",
+        host: databaseHost(),
+        source: databaseSource(),
+      });
+    } catch (error) {
+      res.status(503).json({
+        status: "degraded",
+        database: "unavailable",
+        host: databaseHost(),
+        source: databaseSource(),
+        ...describeDatabaseError(error),
+      });
+    }
   });
 
   app.use("/api", noStore, (_req, _res, next) => {
