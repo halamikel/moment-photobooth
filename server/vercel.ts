@@ -1,7 +1,6 @@
 import type { Express } from "express";
 
 declare const require: (id: string) => { createApp: () => Express };
-declare const module: { exports: unknown };
 
 let app: Express | null = null;
 let startupError: unknown = null;
@@ -27,4 +26,4 @@ function handler(req: any, res: any): void {
   app(req, res);
 }
 
-module.exports = handler;
+export default handler;
