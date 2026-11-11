@@ -13,4 +13,3 @@ storage/uploads/*
 .DS_Store
 *.log
 coverage/
-api/_app.js
